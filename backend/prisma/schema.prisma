@@ -1,0 +1,117 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  mobile         String          @unique
+  isVerified     Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  pran           String?
+  refreshToken   String?
+  onboardingStep OnboardingStep  @default(MOBILE_VERIFIED)
+  kycStatus      KycStatus       @default(NOT_STARTED)
+  kyc            Kyc?
+  profile        UserProfile?
+  consents       Consent[]
+  pfmSelection   PfmSelection?
+  events         AnalyticsEvent[]
+  documents      Document[]
+}
+
+
+model Kyc {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique
+  aadhaarVerified  Boolean  @default(false)
+  aadhaarLast4     String?
+  name             String?
+  dob              DateTime?
+  gender           String?
+  panVerified      Boolean  @default(false)
+  panNumber        String?   // ADD THIS
+  ckycFound        Boolean  @default(false)
+  videoKycStatus   String?  @default("pending")
+  user             User     @relation(fields: [userId], references: [id])
+}
+
+
+model UserProfile {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  fatherName     String?
+  maritalStatus  String?
+  occupation     String?
+  annualIncome   Int?
+  address        String?
+  nomineeName    String?
+  user           User     @relation(fields: [userId], references: [id])
+}
+
+model Consent {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  consentType String
+  timestamp   DateTime @default(now())
+  ipAddress   String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model PfmSelection {
+  id            Int    @id @default(autoincrement())
+  userId        Int    @unique
+  pfmId         Int
+  allocationE   Float?
+  allocationC   Float?
+  allocationG   Float?
+  allocationA   Float?
+  user          User   @relation(fields: [userId], references: [id])
+}
+
+model AnalyticsEvent {
+  id        Int      @id @default(autoincrement())
+  eventType String
+  userId    Int?
+  timestamp DateTime @default(now())
+  details   Json?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model Document {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  path      String
+  status    String   @default("pending")
+  verified  Boolean  @default(false)
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+
+enum OnboardingStep {
+  MOBILE_VERIFIED
+  KYC_PENDING
+  KYC_COMPLETED
+  PROFILE_COMPLETED
+  PFM_SELECTED
+  PAYMENT_COMPLETED
+  PRAN_GENERATED
+}
+
+enum KycStatus {
+  NOT_STARTED
+  AADHAAR_INITIATED
+  AADHAAR_VERIFIED
+  PAN_PENDING
+  PAN_VERIFIED
+  VIDEO_REQUIRED
+  REJECTED
+  APPROVED
+}
+
