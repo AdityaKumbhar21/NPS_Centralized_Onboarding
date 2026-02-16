@@ -5,8 +5,8 @@ const {
   generateRefreshToken,
   verifyRefreshToken
 } = require('../utils/jwt.utils');
+const { emitEvent } = require('../services/event.service');
 const logger = require('../config/logger');
-
 
 const sendOtpController = async (req, res, next) => {
   try {
@@ -30,7 +30,6 @@ const sendOtpController = async (req, res, next) => {
     next(err);
   }
 };
-
 
 const verifyOtpController = async (req, res, next) => {
   try {
@@ -65,21 +64,23 @@ const verifyOtpController = async (req, res, next) => {
           kycStatus: 'NOT_STARTED'
         }
       });
+
+      await emitEvent('USER_REGISTERED', { userId: user.id });
     } else {
       user = await prisma.user.update({
         where: { mobile },
         data: {
-          isVerified: true,
-          onboardingStep: 'KYC_PENDING',
-          kycStatus: user.kycStatus || 'NOT_STARTED'
+          isVerified: true
         }
       });
     }
 
+    await emitEvent('USER_MOBILE_VERIFIED', { userId: user.id });
+
     const token = generateAccessToken({ userId: user.id });
     const refreshToken = generateRefreshToken({ userId: user.id });
 
-    await prisma.user.update({
+    user = await prisma.user.update({
       where: { id: user.id },
       data: { refreshToken }
     });
@@ -96,7 +97,6 @@ const verifyOtpController = async (req, res, next) => {
     next(err);
   }
 };
-
 
 const refreshTokenController = async (req, res, next) => {
   try {
@@ -120,16 +120,18 @@ const refreshTokenController = async (req, res, next) => {
     const newAccessToken = generateAccessToken({ userId: user.id });
     const newRefreshToken = generateRefreshToken({ userId: user.id });
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { refreshToken: newRefreshToken }
     });
 
+    await emitEvent('TOKEN_REFRESHED', { userId: user.id });
+
     res.status(200).json({
       token: newAccessToken,
       refreshToken: newRefreshToken,
-      onboardingStep: user.onboardingStep,
-      kycStatus: user.kycStatus
+      onboardingStep: updatedUser.onboardingStep,
+      kycStatus: updatedUser.kycStatus
     });
 
   } catch (err) {
@@ -138,13 +140,14 @@ const refreshTokenController = async (req, res, next) => {
   }
 };
 
-
 const logoutController = async (req, res, next) => {
   try {
     await prisma.user.update({
       where: { id: req.user.userId },
       data: { refreshToken: null }
     });
+
+    await emitEvent('USER_LOGOUT', { userId: req.user.userId });
 
     res.status(200).json({ message: 'Logged out successfully' });
 

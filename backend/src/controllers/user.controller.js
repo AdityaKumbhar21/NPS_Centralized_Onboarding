@@ -1,5 +1,5 @@
 const prisma = require('../config/database');
-
+const { emitEvent } = require('../services/event.service');
 
 const savePersonalDetails = async (req, res, next) => {
   try {
@@ -21,6 +21,10 @@ const savePersonalDetails = async (req, res, next) => {
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     if (user.onboardingStep !== 'KYC_COMPLETED') {
       return res.status(400).json({
@@ -45,13 +49,14 @@ const savePersonalDetails = async (req, res, next) => {
       }
     });
 
-    // 🔥 Update onboarding step
     await prisma.user.update({
       where: { id: userId },
       data: {
         onboardingStep: 'PROFILE_COMPLETED'
       }
     });
+
+    await emitEvent('PROFILE_COMPLETED', { userId });
 
     res.status(200).json({
       message: 'Personal details saved successfully'
@@ -61,7 +66,6 @@ const savePersonalDetails = async (req, res, next) => {
     next(err);
   }
 };
-
 
 const saveAddress = async (req, res, next) => {
   try {
@@ -74,11 +78,23 @@ const saveAddress = async (req, res, next) => {
       });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user || user.onboardingStep !== 'PROFILE_COMPLETED') {
+      return res.status(400).json({
+        message: 'Complete profile step before adding address'
+      });
+    }
+
     await prisma.userProfile.upsert({
       where: { userId },
       update: { address },
       create: { userId, address }
     });
+
+    await emitEvent('ADDRESS_UPDATED', { userId });
 
     res.status(200).json({
       message: 'Address saved successfully'
@@ -88,7 +104,6 @@ const saveAddress = async (req, res, next) => {
     next(err);
   }
 };
-
 
 const saveNominee = async (req, res, next) => {
   try {
@@ -101,11 +116,23 @@ const saveNominee = async (req, res, next) => {
       });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user || user.onboardingStep !== 'PROFILE_COMPLETED') {
+      return res.status(400).json({
+        message: 'Complete profile step before adding nominee'
+      });
+    }
+
     await prisma.userProfile.upsert({
       where: { userId },
       update: { nomineeName },
       create: { userId, nomineeName }
     });
+
+    await emitEvent('NOMINEE_ADDED', { userId });
 
     res.status(200).json({
       message: 'Nominee saved successfully'
@@ -115,7 +142,6 @@ const saveNominee = async (req, res, next) => {
     next(err);
   }
 };
-
 
 const getDraft = async (req, res, next) => {
   try {
@@ -131,7 +157,7 @@ const getDraft = async (req, res, next) => {
     });
 
     res.status(200).json({
-      onboardingStep: user.onboardingStep,
+      onboardingStep: user?.onboardingStep,
       draft: draft || {}
     });
 

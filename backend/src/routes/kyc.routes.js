@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
+
 const authMiddleware = require('../middlewares/auth.middleware');
 const kycController = require('../controllers/kyc.controller');
 
-router.post('/aadhaar', authMiddleware, kycController.initiateAadhaarController);
-router.post('/pan', authMiddleware, kycController.verifyPanController);
-router.get('/status', authMiddleware, kycController.getKycStatusController);
-router.get('/details', authMiddleware, kycController.getKycDetailsController);
+
+router.use(authMiddleware);
+router.post('/aadhaar', kycController.initiateAadhaarController);
+router.post('/pan', kycController.verifyPanController);
+router.post('/video/start', kycController.startVideoKycController);
+router.post('/video/complete', kycController.completeVideoKycController);
+router.get('/status', kycController.getKycStatusController);
+router.get('/details', kycController.getKycDetailsController);
 
 module.exports = router;

@@ -1,9 +1,12 @@
 const {
   initiateAadhaar,
-  verifyPan
+  verifyPan,
+  startVideoKyc,
+  completeVideoKyc
 } = require('../services/kyc.service');
 
 const prisma = require('../config/database');
+const { emitEvent } = require('../services/event.service');
 
 const initiateAadhaarController = async (req, res, next) => {
   try {
@@ -18,7 +21,10 @@ const initiateAadhaarController = async (req, res, next) => {
       where: { id: userId }
     });
 
-    // Prevent re-verification
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     if (
       user.kycStatus === 'AADHAAR_VERIFIED' ||
       user.kycStatus === 'PAN_VERIFIED' ||
@@ -31,6 +37,8 @@ const initiateAadhaarController = async (req, res, next) => {
 
     const result = await initiateAadhaar(aadhaar, userId);
 
+    await emitEvent('AADHAAR_VERIFIED', { userId });
+
     res.status(200).json({
       message: 'Aadhaar verification successful',
       data: result
@@ -40,7 +48,6 @@ const initiateAadhaarController = async (req, res, next) => {
     next(err);
   }
 };
-
 
 const verifyPanController = async (req, res, next) => {
   try {
@@ -55,7 +62,10 @@ const verifyPanController = async (req, res, next) => {
       where: { id: userId }
     });
 
-    // Enforce progression
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     if (user.kycStatus !== 'AADHAAR_VERIFIED') {
       return res.status(400).json({
         message: 'Complete Aadhaar verification first'
@@ -63,6 +73,8 @@ const verifyPanController = async (req, res, next) => {
     }
 
     const result = await verifyPan(pan, userId);
+
+    await emitEvent('PAN_VERIFIED', { userId });
 
     res.status(200).json({
       message: 'PAN verification completed',
@@ -74,6 +86,59 @@ const verifyPanController = async (req, res, next) => {
   }
 };
 
+const startVideoKycController = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.kycStatus !== 'VIDEO_REQUIRED') {
+      return res.status(400).json({
+        message: 'Video KYC not required'
+      });
+    }
+
+    const result = await startVideoKyc(userId);
+
+    await emitEvent('VIDEO_KYC_STARTED', { userId });
+
+    res.status(200).json(result);
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+const completeVideoKycController = async (req, res, next) => {
+  try {
+    const { sessionId } = req.body;
+    const userId = req.user.userId;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        message: 'Session ID required'
+      });
+    }
+
+    const result = await completeVideoKyc(userId, sessionId);
+
+    await emitEvent('VIDEO_KYC_COMPLETED', { userId });
+
+    res.status(200).json({
+      message: 'Video KYC completed successfully',
+      data: result
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
 
 const getKycStatusController = async (req, res, next) => {
   try {
@@ -86,15 +151,14 @@ const getKycStatusController = async (req, res, next) => {
     });
 
     res.status(200).json({
-      kycStatus: user.kycStatus,
-      onboardingStep: user.onboardingStep
+      kycStatus: user?.kycStatus,
+      onboardingStep: user?.onboardingStep
     });
 
   } catch (err) {
     next(err);
   }
 };
-
 
 const getKycDetailsController = async (req, res, next) => {
   try {
@@ -116,6 +180,8 @@ const getKycDetailsController = async (req, res, next) => {
 module.exports = {
   initiateAadhaarController,
   verifyPanController,
+  startVideoKycController,
+  completeVideoKycController,
   getKycStatusController,
   getKycDetailsController
 };

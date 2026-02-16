@@ -11,35 +11,38 @@ model User {
   id             Int             @id @default(autoincrement())
   mobile         String          @unique
   isVerified     Boolean         @default(false)
+  role           UserRole        @default(USER)
   createdAt      DateTime        @default(now())
   pran           String?
   refreshToken   String?
   onboardingStep OnboardingStep  @default(MOBILE_VERIFIED)
   kycStatus      KycStatus       @default(NOT_STARTED)
+
   kyc            Kyc?
   profile        UserProfile?
   consents       Consent[]
   pfmSelection   PfmSelection?
   events         AnalyticsEvent[]
   documents      Document[]
+  payments       Payment[]
+  videoSessions  VideoKycSession[]
 }
 
-
 model Kyc {
-  id               Int      @id @default(autoincrement())
-  userId           Int      @unique
-  aadhaarVerified  Boolean  @default(false)
+  id               Int             @id @default(autoincrement())
+  userId           Int             @unique
+  aadhaarVerified  Boolean         @default(false)
   aadhaarLast4     String?
   name             String?
   dob              DateTime?
   gender           String?
-  panVerified      Boolean  @default(false)
-  panNumber        String?   // ADD THIS
-  ckycFound        Boolean  @default(false)
-  videoKycStatus   String?  @default("pending")
-  user             User     @relation(fields: [userId], references: [id])
-}
+  panVerified      Boolean         @default(false)
+  panNumber        String?
+  ckycFound        Boolean         @default(false)
+  videoKycStatus   VideoKycStatus  @default(INITIATED)
 
+  user             User            @relation(fields: [userId], references: [id])
+}
 
 model UserProfile {
   id             Int      @id @default(autoincrement())
@@ -50,6 +53,7 @@ model UserProfile {
   annualIncome   Int?
   address        String?
   nomineeName    String?
+
   user           User     @relation(fields: [userId], references: [id])
 }
 
@@ -59,18 +63,20 @@ model Consent {
   consentType String
   timestamp   DateTime @default(now())
   ipAddress   String
+
   user        User     @relation(fields: [userId], references: [id])
 }
 
 model PfmSelection {
-  id            Int    @id @default(autoincrement())
-  userId        Int    @unique
-  pfmId         Int
-  allocationE   Float?
-  allocationC   Float?
-  allocationG   Float?
-  allocationA   Float?
-  user          User   @relation(fields: [userId], references: [id])
+  id          Int    @id @default(autoincrement())
+  userId      Int    @unique
+  pfmId       Int
+  allocationE Float?
+  allocationC Float?
+  allocationG Float?
+  allocationA Float?
+
+  user        User   @relation(fields: [userId], references: [id])
 }
 
 model AnalyticsEvent {
@@ -79,20 +85,41 @@ model AnalyticsEvent {
   userId    Int?
   timestamp DateTime @default(now())
   details   Json?
+
   user      User?    @relation(fields: [userId], references: [id])
 }
 
 model Document {
-  id        Int      @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   userId    Int
   type      String
   path      String
-  status    String   @default("pending")
-  verified  Boolean  @default(false)
+  status    DocumentStatus @default(PENDING)
+  verified  Boolean        @default(false)
 
-  user      User     @relation(fields: [userId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
 }
 
+model Payment {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  orderId   String        @unique
+  amount    Int
+  status    PaymentStatus @default(CREATED)
+  createdAt DateTime      @default(now())
+
+  user      User          @relation(fields: [userId], references: [id])
+}
+
+model VideoKycSession {
+  id        Int               @id @default(autoincrement())
+  userId    Int
+  sessionId String            @unique
+  status    VideoKycStatus    @default(INITIATED)
+  createdAt DateTime          @default(now())
+
+  user      User              @relation(fields: [userId], references: [id])
+}
 
 enum OnboardingStep {
   MOBILE_VERIFIED
@@ -115,3 +142,25 @@ enum KycStatus {
   APPROVED
 }
 
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PaymentStatus {
+  CREATED
+  SUCCESS
+  FAILED
+}
+
+enum VideoKycStatus {
+  INITIATED
+  APPROVED
+  REJECTED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
