@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const prisma = require('../config/database');
-const { encrypt } = require('../utils/crypto.utils');
+const { encrypt } = require('../utils/crypto.util');
 const logger = require('../config/logger');
 
 const s3 = new AWS.S3({

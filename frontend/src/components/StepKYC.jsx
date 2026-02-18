@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { npsService } from '../api/npsService';
+import VideoKyc from './VideoKyc';
 
 const StepKYC = ({ onNext }) => {
   const [pan, setPan] = useState('');
@@ -31,6 +32,14 @@ const StepKYC = ({ onNext }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const [showVideo, setShowVideo] = useState(false);
+
+  const handleVideoComplete = (resp) => {
+    // on successful upload/approval we proceed
+    onNext({ kycMethod: 'video', videoResult: resp });
+    setShowVideo(false);
   };
 
   return (
@@ -74,6 +83,16 @@ const StepKYC = ({ onNext }) => {
             By continuing, you provide consent to fetch your demographic details from the CKYC registry and UIDAI as per PFRDA guidelines.
           </p>
         </div>
+
+        <div className="pt-2">
+          <button onClick={() => setShowVideo(true)} className="w-full mt-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl font-bold">Do Video KYC (POC)</button>
+        </div>
+
+        {showVideo && (
+          <div className="mt-4">
+            <VideoKyc onComplete={handleVideoComplete} onCancel={() => setShowVideo(false)} />
+          </div>
+        )}
 
         <button 
           onClick={handleVerifyPan}

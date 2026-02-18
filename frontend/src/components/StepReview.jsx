@@ -17,7 +17,7 @@ const StepReview = ({ userData, onNext, onBack }) => {
             <span className="material-symbols-outlined text-lg">person</span> Personal Details
           </h4>
           <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
-            <p className="text-sm text-slate-500">Mobile: <span className="text-slate-900 font-bold">{userData.mobileNumber || "N/A"}</span></p>
+            <p className="text-sm text-slate-500">Mobile: <span className="text-slate-900 font-bold">{userData.mobile || userData.mobileNumber || "N/A"}</span></p>
             <p className="text-sm text-slate-500">PAN: <span className="text-slate-900 font-bold uppercase">{userData.panNumber || "N/A"}</span></p>
             <p className="text-sm text-slate-500">Birth Place: <span className="text-slate-900 font-bold">{userData.birthPlace || "N/A"}</span></p>
           </div>

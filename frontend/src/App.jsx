@@ -26,7 +26,7 @@ function App() {
     try {
       await npsService.saveStepData(currentStep, data);
     } catch (err) {
-      console.error("Backend sync failed", err);
+      console.error("Backend sync failed:", err && err.message ? err.message : 'Unknown error');
     }
 
     // 3. Move UI to next page

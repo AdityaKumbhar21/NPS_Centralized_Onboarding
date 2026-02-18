@@ -8,7 +8,7 @@ const {
   logoutController
 } = require('../controllers/auth.controller');
 
-const rateLimitMiddleware = require('../middlewares/rateLimit.middleware');
+const rateLimitMiddleware = require('../middlewares/rate.middleware');
 const authMiddleware = require('../middlewares/auth.middleware');
 
 

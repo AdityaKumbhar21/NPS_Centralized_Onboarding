@@ -98,17 +98,31 @@ const startVideoKycController = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.kycStatus !== 'VIDEO_REQUIRED') {
-      return res.status(400).json({
-        message: 'Video KYC not required'
-      });
-    }
-
+    // allow starting even if not strictly VIDEO_REQUIRED for POC
     const result = await startVideoKyc(userId);
+
+    // generate presigned S3 PUT URL for uploading the video
+    const AWS = require('aws-sdk');
+    const s3 = new AWS.S3({
+      region: process.env.AWS_REGION,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    });
+
+    const key = `video_kyc/${userId}/${result.sessionId}.webm`;
+    const params = {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: key,
+      ContentType: 'video/webm',
+      ACL: 'private',
+      Expires: 600
+    };
+
+    const uploadUrl = await s3.getSignedUrlPromise('putObject', params);
 
     await emitEvent('VIDEO_KYC_STARTED', { userId });
 
-    res.status(200).json(result);
+    res.status(200).json({ sessionId: result.sessionId, uploadUrl, key });
 
   } catch (err) {
     next(err);
@@ -117,7 +131,7 @@ const startVideoKycController = async (req, res, next) => {
 
 const completeVideoKycController = async (req, res, next) => {
   try {
-    const { sessionId } = req.body;
+    const { sessionId, s3Key } = req.body;
     const userId = req.user.userId;
 
     if (!sessionId) {
@@ -126,7 +140,7 @@ const completeVideoKycController = async (req, res, next) => {
       });
     }
 
-    const result = await completeVideoKyc(userId, sessionId);
+    const result = await completeVideoKyc(userId, sessionId, s3Key);
 
     await emitEvent('VIDEO_KYC_COMPLETED', { userId });
 

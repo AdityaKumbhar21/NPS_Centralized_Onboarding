@@ -38,19 +38,19 @@ const apiCall = async (endpoint, options = {}) => {
 export const npsService = {
   // ==================== AUTH ENDPOINTS ====================
   // Step 1: Send OTP to mobile
-  sendOtp: async (mobileNumber) => {
+  sendOtp: async (mobile) => {
     const response = await apiCall(`${BASE_URL}/auth/send-otp`, {
       method: 'POST',
-      body: JSON.stringify({ mobileNumber }),
+      body: JSON.stringify({ mobile }),
     });
     return response;
   },
 
   // Step 1: Verify OTP and get JWT token
-  verifyOtp: async (mobileNumber, otp) => {
+  verifyOtp: async (mobile, otp) => {
     const response = await apiCall(`${BASE_URL}/auth/verify-otp`, {
       method: 'POST',
-      body: JSON.stringify({ mobileNumber, otp }),
+      body: JSON.stringify({ mobile, otp }),
     });
     // Store token after successful verification
     if (response.token || response.accessToken) {
@@ -274,7 +274,7 @@ export const npsService = {
     try {
       // Route to appropriate endpoint based on step
       const stepRoutes = {
-        1: () => npsService.verifyOtp(data.mobileNumber, data.otp),
+        1: () => npsService.verifyOtp(data.mobile || data.mobileNumber, data.otp),
         2: () => npsService.verifyPan(data.pan),
         3: () => npsService.savePersonalDetails(data),
         4: () => npsService.saveNominee(data),

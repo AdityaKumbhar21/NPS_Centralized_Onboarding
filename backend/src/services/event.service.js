@@ -1,4 +1,5 @@
 const amqp = require('amqplib');
+const logger = require('../config/logger');
 
 let connection;
 let channel;
@@ -16,16 +17,16 @@ async function connect() {
     });
 
     connection.on('close', () => {
-      console.error('RabbitMQ connection closed. Reconnecting...');
+      logger.warn('RabbitMQ connection closed. Reconnecting...');
       setTimeout(connect, 5000);
     });
 
     connection.on('error', (err) => {
-      console.error('RabbitMQ error:', err.message);
+      logger.error('RabbitMQ error', { message: err && err.message ? err.message : 'Unknown error' });
     });
 
   } catch (err) {
-    console.error('RabbitMQ connection failed. Retrying...', err.message);
+    logger.error('RabbitMQ connection failed. Retrying...', { message: err && err.message ? err.message : 'Unknown error' });
     setTimeout(connect, 5000);
   }
 }
@@ -51,7 +52,7 @@ const emitEvent = async (eventType, data) => {
     );
 
   } catch (err) {
-    console.error('Failed to emit event:', err.message);
+    logger.error('Failed to emit event', { message: err && err.message ? err.message : 'Unknown error' });
   }
 };
 
