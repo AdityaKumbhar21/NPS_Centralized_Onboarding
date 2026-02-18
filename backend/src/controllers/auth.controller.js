@@ -4,7 +4,7 @@ const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken
-} = require('../utils/jwt.utils');
+} = require('../utils/jwt.util');
 const { emitEvent } = require('../services/event.service');
 const logger = require('../config/logger');
 
