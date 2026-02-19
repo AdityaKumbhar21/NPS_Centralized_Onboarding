@@ -8,6 +8,7 @@ const helmet = require('helmet');
 const prisma = require('./config/database');
 const redisClient = require('./config/redis');
 const logger = require('./config/logger');
+const { startConsumer } = require('./consumers/analytics.consumer');
 
 const errorMiddleware = require('./middlewares/error.middleware');
 
@@ -34,6 +35,7 @@ app.use('/api/user', require('./routes/user.routes'));
 app.use('/api/document', require('./routes/document.routes'));
 app.use('/api/pfm', require('./routes/pfm.routes'));
 app.use('/api/payment', require('./routes/payment.routes'));
+app.use('/api/consent', require('./routes/consent.routes'));
 app.use('/api/admin', require('./routes/admin.routes'));
 
 app.use((req, res) => {
@@ -46,6 +48,8 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
+  // Start RabbitMQ → Analytics DB consumer
+  startConsumer().catch(err => logger.error('Analytics consumer failed to start:', err));
 });
 
 module.exports = { app, prisma, redisClient };

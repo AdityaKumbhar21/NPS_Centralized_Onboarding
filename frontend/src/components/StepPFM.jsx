@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { npsService } from '../api/npsService';
+import { useToast } from '../contexts/ToastProvider';
 
 const StepPFM = ({ userData, onNext, onBack }) => {
   const [selectedPfmId, setSelectedPfmId] = useState(null);
@@ -7,7 +8,7 @@ const StepPFM = ({ userData, onNext, onBack }) => {
   const [pfmList, setPfmList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
-  const [error, setError] = useState('');
+  const { show } = useToast();
 
   // Default PFMs (used if API fetch fails)
   const defaultPfmData = [
@@ -46,18 +47,14 @@ const StepPFM = ({ userData, onNext, onBack }) => {
       setLoading(true);
       try {
         const response = await npsService.listPfms();
-        if (response.success && response.data?.pfms) {
-          setPfmList(response.data.pfms);
-        } else if (response.pfms) {
-          setPfmList(response.pfms);
+        // Backend returns { pfms: [...] }
+        const list = response.pfms || response.data?.pfms || response;
+        const pfmArray = Array.isArray(list) ? list : [];
+        if (pfmArray.length > 0) {
+          setPfmList(pfmArray);
+          setSelectedPfmId(pfmArray[0].id);
         } else {
           setPfmList(defaultPfmData);
-        }
-        if (response.data?.pfms?.length > 0) {
-          setSelectedPfmId(response.data.pfms[0].id);
-        } else if (response.pfms?.length > 0) {
-          setSelectedPfmId(response.pfms[0].id);
-        } else {
           setSelectedPfmId(defaultPfmData[0].id);
         }
       } catch (err) {
@@ -79,19 +76,17 @@ const StepPFM = ({ userData, onNext, onBack }) => {
 
   // Handle PFM selection
   const handleSelectPfm = async (pfmId) => {
-    setError('');
     setSelecting(true);
     try {
       const response = await npsService.selectPfm(pfmId);
-      if (response.success || response.data) {
+      if (response.message || response.success || response.data) {
         setSelectedPfmId(pfmId);
-        setSelecting(false);
       } else {
-        setError(response.message || 'Failed to select PFM');
-        setSelecting(false);
+        show(response.message || 'Failed to select PFM', 'error');
       }
     } catch (err) {
-      setError(err.message || 'Error selecting PFM. Please try again.');
+      show(err.message || 'Error selecting PFM. Please try again.', 'error');
+    } finally {
       setSelecting(false);
     }
   };
@@ -99,7 +94,8 @@ const StepPFM = ({ userData, onNext, onBack }) => {
   // Handle proceed
   const handleProceed = () => {
     if (selectedPfmId) {
-      onNext({ pfmId: selectedPfmId });
+      const selectedFund = pfmList.find(p => p.id === selectedPfmId);
+      onNext({ pfmId: selectedPfmId, pfmName: selectedFund?.name || String(selectedPfmId) });
     }
   };
 
@@ -119,12 +115,7 @@ const StepPFM = ({ userData, onNext, onBack }) => {
           </div>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="px-6 py-4 bg-red-50/50 border-b border-red-100 animate-in slide-in-from-top-2">
-            <p className="text-[11px] text-red-600 leading-relaxed font-semibold">{error}</p>
-          </div>
-        )}
+        {/* Errors are shown via global toasts */}
 
         {/* Filter Bar */}
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4">

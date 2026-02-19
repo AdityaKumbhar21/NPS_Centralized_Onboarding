@@ -22,9 +22,14 @@ const sendOtpController = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid mobile number' });
     }
 
-    const message = await sendOtp(mobile);
+    const result = await sendOtp(mobile);
 
-    res.status(200).json({ message });
+    // In dev mode, expose the OTP so the demo UI can display it
+    const payload = typeof result === 'string'
+      ? { message: result }
+      : result;  // already { message, otp } in dev
+
+    res.status(200).json(payload);
 
   } catch (err) {
     next(err);

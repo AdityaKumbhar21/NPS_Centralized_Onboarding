@@ -1,11 +1,32 @@
 import React, { useState } from 'react';
+import { npsService } from '../api/npsService';
+import { useToast } from '../contexts/ToastProvider';
 
 const AuthCard = () => {
   const [mobile, setMobile] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { show } = useToast();
 
   const handleGenerateOTP = () => {
-    console.log("Calling Backend API for:", mobile);
-    // This is where you will eventually fetch('/api/auth/send-otp')
+    if (!/^[0-9]{10}$/.test(mobile)) {
+      show('Please enter a valid 10-digit mobile number', 'error');
+      return;
+    }
+    setLoading(true);
+    npsService.sendOtp(mobile)
+      .then((res) => {
+        if (res && res.message) {
+          show(res.message, res.success ? 'success' : 'info');
+        } else if (res && (res.success)) {
+          show('OTP sent successfully', 'success');
+        } else {
+          show(res && res.message ? res.message : 'Failed to send OTP', 'error');
+        }
+      })
+      .catch((err) => {
+        show(err && err.message ? err.message : 'API Error', 'error');
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -16,6 +37,7 @@ const AuthCard = () => {
           Enter your mobile number registered with your NPS account.
         </p>
       </div>
+      {/* Validation and server errors are shown as global toasts */}
       <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Mobile Number</label>
       <div className="relative mb-6">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold border-r pr-3">+91</span>
@@ -28,9 +50,10 @@ const AuthCard = () => {
       </div>
       <button 
         onClick={handleGenerateOTP}
-        className="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-bold transition-all shadow-lg"
+        disabled={loading}
+        className="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-bold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Generate OTP →
+        {loading ? 'Sending...' : 'Generate OTP →'}
       </button>
     </div>
   );

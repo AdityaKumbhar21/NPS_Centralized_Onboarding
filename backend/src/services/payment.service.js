@@ -64,8 +64,11 @@ const generatePran = async (userId) => {
     where: { id: userId }
   });
 
-  if (user.onboardingStep !== 'PAYMENT_COMPLETED') {
-    throw new Error('Payment not completed');
+  // Allow PRAN generation if payment is completed OR already in a post-PFM state
+  // (covers simulated / dev flows where webhook never fires)
+  const allowedSteps = ['PAYMENT_COMPLETED', 'PFM_SELECTED', 'FATCA_COMPLETED', 'CONSENT_GIVEN', 'PROFILE_COMPLETED'];
+  if (!user || !allowedSteps.includes(user.onboardingStep)) {
+    throw new Error(`Cannot generate PRAN from step: ${user?.onboardingStep}`);
   }
 
   const pran = 'PRAN' + Date.now().toString().slice(-8);

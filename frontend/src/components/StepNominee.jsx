@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { npsService } from '../api/npsService';
+import { useToast } from '../contexts/ToastProvider';
 
 const StepNominee = ({ onNext, onBack }) => {
   const [nominees, setNominees] = useState([{ name: '', relation: '', age: '', share: 100 }]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { show } = useToast();
 
   const addNominee = () => {
     if (nominees.length < 3) {
@@ -21,25 +22,23 @@ const StepNominee = ({ onNext, onBack }) => {
   const totalShare = nominees.reduce((sum, n) => sum + parseInt(n.share || 0), 0);
 
   const handleSaveNominees = async () => {
-    setError('');
-    
     // Validate all nominees
     const validNominees = nominees.filter(n => n.name && n.relation && n.age);
     if (validNominees.length === 0) {
-      setError('Please fill in at least one nominee');
+      show('Please fill in at least one nominee', 'error');
       return;
     }
 
     setLoading(true);
     try {
       const response = await npsService.saveNominee({ nominees: validNominees });
-      if (response.success || response.data) {
+      if (response.message || response.success || response.data) {
         onNext({ nominees: validNominees });
       } else {
-        setError(response.message || 'Failed to save nominees');
+        show(response.message || 'Failed to save nominees', 'error');
       }
     } catch (err) {
-      setError(err.message || 'Error saving nominees. Please try again.');
+      show(err.message || 'Error saving nominees. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -50,11 +49,7 @@ const StepNominee = ({ onNext, onBack }) => {
       <h3 className="text-2xl font-black mb-6 text-slate-900">Step 4: Nominee Details</h3>
       
       {/* Error Message */}
-      {error && (
-        <div className="mb-6 bg-red-50/50 border-l-4 border-red-500 p-4 rounded-r-2xl">
-          <p className="text-[11px] text-red-600 leading-relaxed font-semibold">{error}</p>
-        </div>
-      )}
+      {/* Errors shown as toasts */}
 
       <div className="space-y-6">
         {nominees.map((nominee, index) => (

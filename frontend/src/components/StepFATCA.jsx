@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
-const StepFATCA = ({ onNext }) => {
+const StepFATCA = ({ onNext, onBack }) => {
   const [isIndianResident, setIsIndianResident] = useState(true);
+  const [declared, setDeclared] = useState(false);
 
   return (
     <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 animate-in slide-in-from-right-8 duration-500">
@@ -34,17 +35,28 @@ const StepFATCA = ({ onNext }) => {
         )}
 
         <div className="flex items-start gap-3">
-          <input type="checkbox" className="mt-1 rounded text-primary" id="declare" />
-          <label htmlFor="declare" className="text-[11px] text-slate-500">
+          <input
+            type="checkbox"
+            className="mt-1 rounded text-primary cursor-pointer"
+            id="declare"
+            checked={declared}
+            onChange={(e) => setDeclared(e.target.checked)}
+          />
+          <label htmlFor="declare" className="text-[11px] text-slate-500 cursor-pointer">
             I hereby declare that the information provided is true and correct to the best of my knowledge.
           </label>
         </div>
 
         <button 
-          onClick={() => onNext({ fatcaCompliant: true })}
-          className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-xl"
+          onClick={() => declared && onNext({ fatcaCompliant: isIndianResident })}
+          disabled={!declared}
+          className={`w-full py-4 rounded-xl font-bold shadow-xl transition-all ${
+            declared
+              ? 'bg-slate-900 text-white hover:bg-black cursor-pointer'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+          }`}
         >
-          Confirm Declaration
+          {declared ? 'Confirm Declaration' : 'Please accept the declaration to continue'}
         </button>
       </div>
     </div>

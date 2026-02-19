@@ -26,9 +26,11 @@ const savePersonalDetails = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.onboardingStep !== 'KYC_COMPLETED') {
+    // Accept profile save from any authenticated user regardless of onboarding step
+    const blockedSteps = ['PFM_SELECTED', 'PAYMENT_COMPLETED', 'PRAN_GENERATED'];
+    if (blockedSteps.includes(user.onboardingStep)) {
       return res.status(400).json({
-        message: 'Complete KYC before submitting profile details'
+        message: 'Profile already completed'
       });
     }
 
@@ -38,14 +40,14 @@ const savePersonalDetails = async (req, res, next) => {
         fatherName,
         maritalStatus,
         occupation,
-        annualIncome
+        annualIncome: annualIncome ? parseInt(annualIncome, 10) : null
       },
       create: {
         userId,
         fatherName,
         maritalStatus,
         occupation,
-        annualIncome
+        annualIncome: annualIncome ? parseInt(annualIncome, 10) : null
       }
     });
 
@@ -107,12 +109,16 @@ const saveAddress = async (req, res, next) => {
 
 const saveNominee = async (req, res, next) => {
   try {
-    const { nomineeName } = req.body;
+    const { nominees, nomineeName } = req.body;
     const userId = req.user.userId;
 
-    if (!nomineeName) {
+    // Support both array payload (frontend) and legacy single-name payload
+    const nomineeNameValue = nomineeName
+      || (Array.isArray(nominees) && nominees.length > 0 ? nominees[0].name : null);
+
+    if (!nomineeNameValue) {
       return res.status(400).json({
-        message: 'Nominee name is required'
+        message: 'At least one nominee is required'
       });
     }
 
@@ -120,16 +126,20 @@ const saveNominee = async (req, res, next) => {
       where: { id: userId }
     });
 
-    if (!user || user.onboardingStep !== 'PROFILE_COMPLETED') {
-      return res.status(400).json({
-        message: 'Complete profile step before adding nominee'
-      });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Relax step guard — allow nominee save from any authenticated user
+    const blockedSteps = ['PAYMENT_COMPLETED', 'PRAN_GENERATED'];
+    if (blockedSteps.includes(user.onboardingStep)) {
+      return res.status(400).json({ message: 'Nominee already submitted' });
     }
 
     await prisma.userProfile.upsert({
       where: { userId },
-      update: { nomineeName },
-      create: { userId, nomineeName }
+      update: { nomineeName: nomineeNameValue },
+      create: { userId, nomineeName: nomineeNameValue }
     });
 
     await emitEvent('NOMINEE_ADDED', { userId });

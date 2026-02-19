@@ -1,33 +1,39 @@
 import React, { useState } from 'react';
 import { npsService } from '../api/npsService';
+import { useToast } from '../contexts/ToastProvider';
 
-const StepPayment = ({ userData }) => {
+const StepPayment = ({ userData, onNext }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [generatedPran, setGeneratedPran] = useState("");
-  const [error, setError] = useState('');
+  const { show } = useToast();
 
   const handlePayment = async () => {
-    setError('');
     setIsProcessing(true);
     
     try {
-      // Simulate payment processing (in real scenario, this would be payment gateway)
+      // Step 1: Register payment initiation on backend
+      await npsService.initiatePayment({ amount: 500 });
+
+      // Step 2: Simulate payment gateway processing
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Generate PRAN via backend
+      // Step 3: Generate PRAN via backend
       const response = await npsService.generatePran(userData);
       
       if (response && (response.pran || response.data?.pran)) {
-        setGeneratedPran(response.pran || response.data.pran);
-        setIsProcessing(false);
+        const pran = response.pran || response.data.pran;
+        setGeneratedPran(pran);
         setIsPaid(true);
+        show('PRAN generated successfully!', 'success');
+        // Advance to Video KYC after short delay so user sees the PRAN
+        setTimeout(() => onNext && onNext({ pran, paymentDone: true }), 3000);
       } else {
         throw new Error(response.message || 'Failed to generate PRAN');
       }
     } catch (err) {
-      console.error("Final registration failed:", error);
-      setError(err.message || "Payment verified, but account activation failed. Please contact support.");
+      console.error('Payment flow failed:', err);
+      show(err.message || 'Payment failed. Please try again.', 'error');
       setIsProcessing(false);
     }
   };
@@ -43,6 +49,7 @@ const StepPayment = ({ userData }) => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your Permanent Retirement Account Number</p>
             <p className="text-xl font-mono font-black text-primary">{generatedPran}</p>
         </div>
+        <p className="text-xs text-slate-400">Proceeding to Video KYC verification...</p>
 
         {/* Action Buttons for Post-Onboarding */}
         <div className="space-y-3">
@@ -70,11 +77,7 @@ const StepPayment = ({ userData }) => {
       </div>
 
       {/* Error Message */}
-      {error && (
-        <div className="mb-6 bg-red-50/50 border-l-4 border-red-500 p-4 rounded-r-2xl animate-in slide-in-from-top-2">
-          <p className="text-[11px] text-red-600 leading-relaxed font-semibold">{error}</p>
-        </div>
-      )}
+      {/* Errors are shown as global toasts */}
 
       <div className="space-y-4 mb-8">
         <div className="flex justify-between text-sm">

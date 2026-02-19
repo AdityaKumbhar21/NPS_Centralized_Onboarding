@@ -1,59 +1,50 @@
 import React, { useState } from 'react';
 import { npsService } from '../api/npsService';
-import VideoKyc from './VideoKyc';
+import { useToast } from '../contexts/ToastProvider';
 
 const StepKYC = ({ onNext }) => {
   const [pan, setPan] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { show } = useToast();
   
   // Official PAN Regex: 5 letters, 4 numbers, 1 letter
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-  const isInvalid = pan.length === 10 && !panRegex.test(pan);
+  // Normalize PAN for validation: remove spaces (including NBSP) and trim
+  const normalizedPan = pan ? pan.replace(/[\s\u00A0]/g, '').trim() : pan;
+  const isInvalid = normalizedPan.length === 10 && !panRegex.test(normalizedPan);
 
   const handleVerifyPan = async () => {
-    setError('');
-    if (!panRegex.test(pan)) {
-      setError('Please enter a valid PAN format');
+    const panToVerify = normalizedPan;
+    if (!panRegex.test(panToVerify)) {
+      show('Please enter a valid PAN format', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await npsService.verifyPan(pan);
+      const response = await npsService.verifyPan(panToVerify);
       if (response.success || response.data) {
         // PAN verification successful, proceed to next step
-        onNext({ pan, kycMethod: 'pan' });
+        onNext({ pan: panToVerify, kycMethod: 'pan' });
       } else {
-        setError(response.message || 'PAN verification failed. Please try again.');
+        show(response.message || 'PAN verification failed. Please try again.', 'error');
       }
     } catch (err) {
-      setError(err.message || 'Error verifying PAN. Please try again.');
+      show(err.message || 'Error verifying PAN. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const [showVideo, setShowVideo] = useState(false);
-
-  const handleVideoComplete = (resp) => {
-    // on successful upload/approval we proceed
-    onNext({ kycMethod: 'video', videoResult: resp });
-    setShowVideo(false);
-  };
+  
 
   return (
     <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 animate-in fade-in duration-500">
-      <h3 className="text-2xl font-black text-slate-900 mb-2">Step 2: e-KYC</h3>
+      <h3 className="text-2xl font-black text-slate-900 mb-2">Step 3: PAN Verification</h3>
       <p className="text-sm text-slate-500 mb-8">We use real-time NSDL & UIDAI integration for instant verification.</p>
 
       <div className="space-y-6">
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50/50 border-l-4 border-red-500 p-4 rounded-r-2xl animate-in slide-in-from-top-2">
-            <p className="text-[11px] text-red-600 leading-relaxed font-semibold">{error}</p>
-          </div>
-        )}
+        {/* Validation and server errors are shown as global toasts */}
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
@@ -70,7 +61,9 @@ const StepKYC = ({ onNext }) => {
             placeholder="ABCDE1234F"
             value={pan}
             onChange={(e) => {
-              const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+              const raw = e.target.value || '';
+              const noSpaces = raw.replace(/[\s\u00A0]/g, '');
+              const val = noSpaces.toUpperCase().replace(/[^A-Z0-9]/g, '');
               setPan(val.slice(0, 10));
             }}
             disabled={loading}
@@ -84,19 +77,11 @@ const StepKYC = ({ onNext }) => {
           </p>
         </div>
 
-        <div className="pt-2">
-          <button onClick={() => setShowVideo(true)} className="w-full mt-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl font-bold">Do Video KYC (POC)</button>
-        </div>
-
-        {showVideo && (
-          <div className="mt-4">
-            <VideoKyc onComplete={handleVideoComplete} onCancel={() => setShowVideo(false)} />
-          </div>
-        )}
+        {/* Video KYC moved to final onboarding step */}
 
         <button 
           onClick={handleVerifyPan}
-          disabled={!panRegex.test(pan) || loading}
+          disabled={!panRegex.test(normalizedPan) || loading}
           className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-xl hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {loading ? (
@@ -105,7 +90,7 @@ const StepKYC = ({ onNext }) => {
               Verifying...
             </>
           ) : (
-            pan.length === 10 && !panRegex.test(pan) ? "Enter Valid PAN" : "Confirm & Fetch Details"
+            normalizedPan.length === 10 && !panRegex.test(normalizedPan) ? "Enter Valid PAN" : "Confirm & Fetch Details"
           )}
         </button>
       </div>

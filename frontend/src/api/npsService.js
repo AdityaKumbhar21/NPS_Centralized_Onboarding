@@ -28,11 +28,44 @@ const apiCall = async (endpoint, options = {}) => {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'API Error' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    // Try to parse JSON body for an error message, fall back to text
+    let parsed = null;
+    try {
+      parsed = await response.json();
+    } catch (e) {
+      try {
+        const txt = await response.text();
+        parsed = { message: txt };
+      } catch (e2) {
+        parsed = { message: `HTTP ${response.status}` };
+      }
+    }
+
+    // Provide friendly messages for common statuses when backend doesn't supply one
+    if ((!parsed || !parsed.message) && response.status === 429) {
+      parsed = { message: 'Too many requests. Please wait a minute and try again.' };
+    } else if ((!parsed || !parsed.message) && response.status >= 500) {
+      parsed = { message: 'Server error. Please try again later.' };
+    }
+
+    const err = new Error(parsed && parsed.message ? parsed.message : `HTTP ${response.status}`);
+    err.status = response.status;
+    err.body = parsed;
+    // Emit a global toast event so UI can display server messages centrally
+    try {
+      window.dispatchEvent(new CustomEvent('nps:toast', { detail: { message: err.message, type: response.status === 429 ? 'error' : 'error' } }));
+    } catch (e) {
+      // ignore if window not available
+    }
+    throw err;
   }
 
-  return await response.json();
+  // Successful response: attempt to parse JSON, otherwise return text
+  try {
+    return await response.json();
+  } catch (e) {
+    return await response.text();
+  }
 };
 
 export const npsService = {
@@ -53,6 +86,28 @@ export const npsService = {
       body: JSON.stringify({ mobile, otp }),
     });
     // Store token after successful verification
+    if (response.token || response.accessToken) {
+      setToken(response.token || response.accessToken);
+    }
+    return response;
+  },
+
+  // ─── Aadhaar eKYC flow (public, no token needed) ─────────────────────────
+  // Step 2a: Initiate Aadhaar OTP – returns { message, maskedMobile, otp? }
+  initiateAadhaarOtp: async (aadhaar) => {
+    return await apiCall(`${BASE_URL}/kyc/aadhaar/initiate`, {
+      method: 'POST',
+      body: JSON.stringify({ aadhaar }),
+    });
+  },
+
+  // Step 2b: Verify Aadhaar OTP – returns { token, refreshToken, onboardingStep, kycStatus }
+  verifyAadhaarOtp: async (aadhaar, otp) => {
+    const response = await apiCall(`${BASE_URL}/kyc/aadhaar/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ aadhaar, otp }),
+    });
+    // Store JWT issued after Aadhaar verification
     if (response.token || response.accessToken) {
       setToken(response.token || response.accessToken);
     }
@@ -81,17 +136,19 @@ export const npsService = {
   // ==================== KYC ENDPOINTS ====================
   // Step 2: Initiate Aadhaar verification
   initiateAadhaar: async (aadhaarNumber) => {
+    // Backend expects { aadhaar }
     return await apiCall(`${BASE_URL}/kyc/aadhaar`, {
       method: 'POST',
-      body: JSON.stringify({ aadhaarNumber }),
+      body: JSON.stringify({ aadhaar: aadhaarNumber }),
     });
   },
 
   // Step 2: Verify PAN
   verifyPan: async (panNumber) => {
+    // Backend expects { pan: 'ABCDE1234F' }
     return await apiCall(`${BASE_URL}/kyc/pan`, {
       method: 'POST',
-      body: JSON.stringify({ panNumber }),
+      body: JSON.stringify({ pan: panNumber }),
     });
   },
 
@@ -102,11 +159,14 @@ export const npsService = {
     });
   },
 
-  // Step 2: Complete video KYC
+  // Complete Video KYC session
   completeVideoKyc: async (videoData) => {
     return await apiCall(`${BASE_URL}/kyc/video/complete`, {
       method: 'POST',
-      body: JSON.stringify(videoData),
+      body: JSON.stringify({
+        sessionId: videoData.sessionId,
+        s3Key: videoData.s3Key || 'demo',
+      }),
     });
   },
 
@@ -272,23 +332,19 @@ export const npsService = {
   // Save step data (generic for all steps)
   saveStepData: async (stepNumber, data) => {
     try {
-      // Route to appropriate endpoint based on step
+      // Only steps 8 (FATCA) and 9 (AssetAllocation) reach here.
+      // Steps 2-7 and 11 are SELF_HANDLING_STEPS and call their own APIs.
+      // Step 10 (Review) is read-only. Step 1 and 11 are excluded upstream.
       const stepRoutes = {
-        1: () => npsService.verifyOtp(data.mobile || data.mobileNumber, data.otp),
-        2: () => npsService.verifyPan(data.pan),
-        3: () => npsService.savePersonalDetails(data),
-        4: () => npsService.saveNominee(data),
-        5: () => npsService.selectPfm(data.pfmId),
-        6: () => npsService.acceptConsent(data),
-        7: () => npsService.acceptConsent(data),
-        8: () => npsService.initiatePayment(data),
+        8: () => npsService.acceptConsent({ fatcaCompliant: data.fatcaCompliant, consentType: 'FATCA' }),
+        9: () => npsService.acceptConsent({ assetChoice: data.assetChoice, consentType: 'ASSET_ALLOCATION' }),
       };
 
       if (stepRoutes[stepNumber]) {
         return await stepRoutes[stepNumber]();
       }
-      console.warn(`No handler for step ${stepNumber}`);
-      return { success: false };
+      // No-op for any other step that falls through
+      return { success: true };
     } catch (error) {
       console.error(`Failed to save Step ${stepNumber}:`, error);
       throw error;

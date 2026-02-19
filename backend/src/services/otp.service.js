@@ -30,7 +30,8 @@ const sendOtp = async (mobile) => {
 
     if (twilioDisabled) {
       logger.info(`DEV OTP for ${mobile}: ${otp}`);
-      return 'OTP logged in development';
+      // Return raw OTP in dev so callers (e.g. Aadhaar initiate) can surface it to the UI
+      return { message: 'OTP logged in development', otp };
     }
 
     await twilioClient.messages.create({
@@ -40,7 +41,7 @@ const sendOtp = async (mobile) => {
     });
 
     logger.info(`OTP sent successfully to ${mobile}`);
-    return 'OTP sent successfully';
+    return { message: 'OTP sent successfully' };
   } catch (error) {
     logger.error('OTP send error', { message: error && error.message, stack: error && error.stack });
     throw error;
