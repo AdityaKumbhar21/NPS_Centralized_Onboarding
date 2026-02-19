@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Header from './components/Header';
+import ProgressBar from './components/ProgressBar';
 import StepAuth from './components/StepAuth';
 import StepAadhaar from './components/StepAadhaar';
 import StepKYC from './components/StepKYC';
@@ -70,6 +71,13 @@ function App() {
         <Header />
 
         <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+        {/* Persistent Progress Bar — hidden on Auth step and completion screen */}
+        {!completed && currentStep > 1 && (
+          <div className="mb-8">
+            <ProgressBar currentStep={currentStep} totalSteps={11} />
+          </div>
+        )}
+
         {completed ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="bg-white p-12 rounded-3xl shadow-2xl text-center max-w-md w-full border border-slate-100 animate-in zoom-in duration-500">
@@ -125,7 +133,7 @@ function App() {
               </div>
             </div>
 
-            {/* Right Section: Form Cards */}
+            {/* Right Section: Form Cards - Single Step at a Time */}
             <div className="md:w-1/2 flex justify-center w-full">
                 {currentStep === 1 && <StepAuth onNext={nextStep} />}
             </div>
