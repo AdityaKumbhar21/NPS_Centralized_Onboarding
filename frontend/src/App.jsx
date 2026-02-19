@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Header from './components/Header';
+import ProgressBar from './components/ProgressBar';
 import StepAuth from './components/StepAuth';
 import StepKYC from './components/StepKYC';
 import StepPersonalPlus from './components/StepPersonalPlus';
@@ -42,12 +43,17 @@ function App() {
       <Header />
 
       <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+        {/* Persistent Progress Bar - Visible through all steps */}
+        <div className="mb-12 sticky top-24 z-40">
+          <ProgressBar currentStep={currentStep} totalSteps={9} />
+        </div>
         {/* LAYOUT LOGIC:
             Steps 1, 2, 3: Split screen (Information on left)
             Steps 4 - 9: Full width (For complex data visualization)
+            Only the CURRENT step is rendered (not stacked)
         */}
-        {currentStep <= 3 ? (
-          <div className="flex flex-col md:flex-row gap-12 items-center">
+        {currentStep <= 3 && (
+          <div className="flex flex-col md:flex-row gap-12 items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Left Section: Information & Trust */}
             <div className="md:w-1/2 space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
               <div className="space-y-4">
@@ -81,26 +87,24 @@ function App() {
               </div>
             </div>
 
-            {/* Right Section: Form Cards */}
+            {/* Right Section: Form Cards - Single Step at a Time */}
             <div className="md:w-1/2 flex justify-center w-full">
               {currentStep === 1 && <StepAuth onNext={nextStep} />}
               {currentStep === 2 && <StepKYC onNext={nextStep} />}
               {currentStep === 3 && <StepPersonalPlus onNext={nextStep} onBack={prevStep} />}
             </div>
           </div>
-        ) : (
-          /* Full Width Layout for Complex Steps */
-          <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-             {currentStep === 4 && <StepNominee onNext={nextStep} onBack={prevStep} />}
-             {currentStep === 5 && <StepPFM userData={userData} onNext={nextStep} onBack={prevStep} />}
-             {currentStep === 6 && <StepFATCA onNext={nextStep} onBack={prevStep} />}
-             {currentStep === 7 && <StepAssetAllocation onNext={nextStep} onBack={prevStep} />}
-             
-             {/* New Review Step: Mandatory for PFRDA Compliance */}
-             {currentStep === 8 && <StepReview userData={userData} onNext={nextStep} onBack={prevStep} />}
-             
-             {/* Final Payment & Success Notification */}
-             {currentStep === 9 && <StepPayment userData={userData} />}
+        )}
+
+        {/* Full Width Layout for Complex Steps - Single Step at a Time */}
+        {currentStep > 3 && (
+          <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-500">
+            {currentStep === 4 && <StepNominee onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 5 && <StepPFM userData={userData} onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 6 && <StepFATCA onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 7 && <StepAssetAllocation onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 8 && <StepReview userData={userData} onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 9 && <StepPayment userData={userData} />}
           </div>
         )}
       </main>
